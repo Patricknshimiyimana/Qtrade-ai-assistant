@@ -1,0 +1,4 @@
+chromadb==0.5.3
+litellm==1.40.14
+pydantic==2.7.4
+sentence-transformers==3.0.1

@@ -1,0 +1,22 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local Vector DB persistence
+data/chroma_db/
+*.db
+*.sqlite3
+
+# OS / IDE metadata
+.DS_Store
+.vscode/
+.idea/
+
+# Environment Variables
+.env
