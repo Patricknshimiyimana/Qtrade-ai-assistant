@@ -1,6 +1,7 @@
 # Virtual Environment
 venv/
 .venv/
+.venv*/
 
 # Python Cache
 __pycache__/
@@ -20,3 +21,6 @@ data/chroma_db/
 
 # Environment Variables
 .env
+
+# Runtime logs
+*.log

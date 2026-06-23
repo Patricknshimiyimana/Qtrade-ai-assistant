@@ -3,3 +3,4 @@ litellm==1.40.14
 pydantic==2.7.4
 sentence-transformers==3.0.1
 python-dotenv==1.0.1
+rich==13.7.1
