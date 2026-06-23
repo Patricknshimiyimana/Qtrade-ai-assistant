@@ -1,6 +1,6 @@
 # QTrade AI Support Assistant
 
-A small RAG assistant for QTrade's help docs. It answers questions from four
+A RAG assistant for QTrade's help docs. It answers questions from four
 help documents, cites the doc it used, says **"I don't know"** when the answer
 isn't in the docs, and hands off to a human when it shouldn't answer.
 
@@ -41,15 +41,17 @@ question
 
 Files:
 
-| Path                  | Job                                                |
-| --------------------- | -------------------------------------------------- |
-| `src/ingest.py`       | Read the 4 docs, tag each with its title, index it |
-| `src/vector_store.py` | In-memory ChromaDB wrapper (cosine distance)       |
-| `src/escalation.py`   | Gate 1 word checks + the LLM routing decision      |
-| `src/pipeline.py`     | Runs Gate 1 → search → answer → router             |
-| `src/schema.py`       | Pydantic response models                           |
-| `src/cli.py`          | Terminal UI                                        |
-| `src/config.py`       | Models, top-k, threshold, prompts                  |
+| Path                   | Job                                                |
+| ---------------------- | -------------------------------------------------- |
+| `src/ingest.py`        | Read the 4 docs, tag each with its title, index it |
+| `src/vector_store.py`  | In-memory ChromaDB wrapper (cosine distance)       |
+| `src/escalation.py`    | Gate 1 word checks + the LLM routing decision      |
+| `src/pipeline.py`      | Runs Gate 1 → search → answer → router             |
+| `src/schema.py`        | Pydantic response models                           |
+| `src/cli.py`           | Terminal UI                                        |
+| `src/config.py`        | Models, top-k, threshold, prompts                  |
+| `src/api.py`           | Optional HTTP API (sessions + messages)            |
+| `src/session_store.py` | Thread-safe in-memory session history for the API  |
 
 ## How to run
 
@@ -76,6 +78,52 @@ python main.py
 
 Ask things like _"Can I return an opened item?"_ or _"How do I reset my
 SmartHub?"_. Type `exit` to quit.
+
+### HTTP API
+
+The same pipeline is also exposed as a small HTTP API (Python stdlib):
+
+```bash
+python main.py --api
+# serves on 127.0.0.1:8000 by default
+```
+
+For a custom host and port use `--host` and `--port` flags. Example:
+
+```bash
+python main.py --api --host 0.0.0.0 --port 9000
+# custom host and port
+```
+
+Endpoints:
+
+- `GET /health` → `{"status": "ok"}`
+- `POST /sessions` → create a session, returns a `session_id`
+- `POST /sessions/{id}/messages` with `{"message": "..."}` → ask a question
+
+Example:
+
+> #### Check the server is up (GET):
+
+```bash
+curl -s localhost:8000/health
+```
+
+> #### Create a session:
+
+```bash
+curl -s -X POST localhost:8000/sessions
+```
+
+> #### Create a send message request.
+>
+> Replace <session_id> with the session ID returned in the response of the previous request:
+
+```bash
+curl -s -X POST localhost:8000/sessions/<session_id>/messages \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "How do I reset my SmartHub?"}'
+```
 
 ## Example interactions
 
