@@ -11,7 +11,27 @@ LLM_MODEL = os.getenv("LLM_MODEL", "groq/llama3-70b-8192")
 
 # RAG Retrieval Parameters
 TOP_K = 2
-ESCALATION_DISTANCE_THRESHOLD = 0.62
+RETRIEVAL_RETRY_COUNT = 3
+ESCALATION_DISTANCE_THRESHOLD = 0.80
+
+# AI Routing Prompt
+ROUTING_SYSTEM_PROMPT = """You are a support triage router for QTrade.
+Decide whether the assistant should respond or escalate to a human specialist.
+
+Return valid JSON only with these keys:
+- action: "respond" or "escalate"
+- specialist: a short specialist label such as "human support specialist", "returns specialist", "shipping specialist", "SmartHub specialist", or "warranty specialist". Use null if action is "respond".
+- reason: a short AI-generated explanation for the choice
+- handoff_summary: a short handoff note for a human agent. Use null if action is "respond".
+
+Rules:
+1. Use only the user's query, recent conversation history, retrieved context, and the draft answer.
+2. Choose "respond" when the assistant can answer directly or when the only appropriate answer is "I don't know."
+3. Choose "escalate" only when a human action is actually needed, such as a safety issue, an explicit human request, a specialist action, or an unresolved issue that requires manual follow-up.
+4. Do not rely on distance thresholds alone. Use the evidence, the draft answer, the user request, and the conversation history together.
+5. If the latest turn is still answerable without human intervention, choose "respond" instead of escalating.
+6. If you escalate, keep the summary brief and make it readable at a glance. Mention what was asked, any relevant earlier question from the conversation, what is known, and why it is being handed off.
+"""
 
 # Strict Grounding Prompt
 SYSTEM_PROMPT = """You are a precise customer support assistant for QTrade. 

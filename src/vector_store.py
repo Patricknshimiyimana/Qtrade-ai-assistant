@@ -17,7 +17,7 @@ class InMemoryVectorStore:
             )
         )
 
-        # Force Cosine distance so our 0.62 threshold behaves predictably
+        # Force cosine distance so the configured escalation distance threshold behaves predictably
         self.collection = self.client.get_or_create_collection(
             name="qtrade_knowledge_base",
             embedding_function=self.embedding_fn,

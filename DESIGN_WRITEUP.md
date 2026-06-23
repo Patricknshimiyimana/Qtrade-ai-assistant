@@ -1,26 +1,30 @@
 # Design Write-Up — QTrade AI Support Assistant
 
-The system uses a word-based hand-off check (safety + human requests) plus a
-distance check after search, over an in-memory RAG pipeline. These notes answer
-the four design questions.
+The system uses a fast word check followed by an LLM router, over an in-memory
+RAG pipeline. The word check flags safety words and explicit human requests, and
+answers greetings directly. The router then looks at the query, retrieved
+context, draft answer, and history to decide respond vs. escalate, and writes a
+short handoff summary when it escalates. These notes answer the four design
+questions.
 
 ## 1. A different hand-off policy
 
-I built a fixed, per-message check: each question is matched against safety and
-human-request phrases before search, and against a distance cutoff after search.
-It hands off the moment either one fires.
+The policy is LLM-led: after a lexical pre-check, an LLM router judges
+each message in context and hands off when a human is actually needed. It catches
+more real cases than fixed rules and produces a readable handoff summary.
 
-A different policy would use confidence bands with a "clarify" step: answer when
-the match is strong, ask one follow-up question when it's borderline, and hand
-off only when it's weak or the model says it's unsure. It could also hand off
-based on the whole chat — repeated weak answers, the same question asked again,
-or signs of frustration.
+A different policy would be deterministic-first: pre-defined rules escalate safety and
+explicit human requests _before_ any model call, and the LLM is only consulted
+for the ambiguous middle. This is more predictable, cheaper, and fail-safe. A
+safety hand-off never depends on a model. But it catches fewer subtle cases and
+needs the rules maintained by hand.
 
-This catches more cases and gives fewer dead-end "I don't know"s, so more
-customers get helped without a human. But it costs more LLM calls and latency,
-self-rated confidence needs tuning, and chat-level rules risk handing off too
-late, after the customer is already upset. The fixed rule I shipped is simpler to
-predict, test, and audit, which makes it the right default for v1.
+The trade-off is recall vs. predictability. The LLM router helps more customers
+without a human but costs an extra call per query and can, in principle, decline
+to escalate. The deterministic-first policy is safer and faster but less flexible.
+The right answer is a mix: deterministic rules for safety and clear demands, and
+the router for everything genuinely uncertain, which is the direction I'd take
+this next.
 
 ## 2. Scaling to 10x and 100x
 
@@ -40,12 +44,12 @@ separate indexing job that runs when docs change.
 I'd build a labelled test set (question → which doc, hand off or not, "I don't
 know" or not) and score retrieval (is the right doc in the top results?),
 grounding (is every claim backed by a doc?), citation accuracy, and hand-off
-accuracy — tracking missed safety cases closely, since those are the costly ones.
+accuracy, tracking missed safety cases closely, since those are the costly ones.
 
 To catch regressions early, I'd run this set in CI on every change to a prompt,
 model, threshold, or doc, and fail the build if a score drops. In production I'd
 watch hand-off rate, "I don't know" rate, and thumbs-down rate, and alert on
-sudden changes — these usually show a problem before customers feel it.
+sudden changes, since these usually show a problem before customers feel it.
 
 ## 4. Deployment and monitoring
 

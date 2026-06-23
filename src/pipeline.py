@@ -1,13 +1,25 @@
 import logging
 from typing import List, Optional
 from litellm import completion
-from src.config import LLM_MODEL, SYSTEM_PROMPT
-from src.escalation import check_post_retrieval, check_pre_retrieval
+from src.config import LLM_MODEL, RETRIEVAL_RETRY_COUNT, SYSTEM_PROMPT
+from src.escalation import check_pre_retrieval, decide_routing_action
 from src.ingest import build_ephemeral_store
 from src.schema import AssistantResponse, Citation, EscalationDecision
 
 # Initialize logger for monitoring and debugging
 logger = logging.getLogger(__name__)
+
+CAPABILITY_RESPONSE = (
+    "I can help with QTrade returns and refunds, shipping questions, "
+    "SmartHub setup and troubleshooting, and warranty support. "
+    "If you want, ask me a specific question about one of those topics."
+)
+
+GREETING_RESPONSE = (
+    "Hello. I can help with QTrade returns and refunds, shipping questions, "
+    "SmartHub setup and troubleshooting, and warranty support. "
+    "Ask me a question whenever you're ready."
+)
 
 
 class SupportPipeline:
@@ -27,47 +39,49 @@ class SupportPipeline:
 
         # GATE 1: Pre-retrieval lexical hazard & demand scan
         pre_decision = check_pre_retrieval(user_query)
-        if pre_decision and pre_decision.should_escalate:
-            logger.warning(
-                f"Gate 1 Escalation triggered: {pre_decision.reason}"
-            )
+
+        if pre_decision and not pre_decision.should_escalate:
+            logger.info(f"Direct response detected: {pre_decision.reason}")
+
+            if pre_decision.reason and pre_decision.reason.startswith("GREETING_QUERY"):
+                direct_response = GREETING_RESPONSE
+                direct_reason = "Answered directly as a greeting query."
+            else:
+                direct_response = CAPABILITY_RESPONSE
+                direct_reason = "Answered directly as a capability query."
+
             return AssistantResponse(
                 user_query=user_query,
-                answer="I am routing your request to a live human support representative.",
-                citation=None,
-                escalation=pre_decision,
-            )
-
-        # RETRIEVAL: Fetch top semantic matches from RAM store
-        logger.info(f"Querying vector space for: '{user_query}'")
-        retrieved_chunks = self.vector_store.query(user_query)
-
-        if not retrieved_chunks:
-            return AssistantResponse(
-                user_query=user_query,
-                answer="I don't know.",
+                answer=direct_response,
                 citation=None,
                 escalation=EscalationDecision(
-                    should_escalate=True,
-                    reason="Knowledge base returned zero matching documents.",
+                    should_escalate=False,
+                    reason=direct_reason,
                 ),
             )
 
-        top_hit = retrieved_chunks[0]
-        top_distance = top_hit["distance"]
+        # RETRIEVAL: Fetch top semantic matches from RAM store, retrying when the
+        # match quality is weak or the store returns nothing.
+        retrieved_chunks = []
+        top_hit = None
+        top_distance = None
 
-        # GATE 2: Post-retrieval semantic distance check
-        post_decision = check_post_retrieval(top_distance)
-        if post_decision and post_decision.should_escalate:
-            logger.warning(
-                f"Gate 2 Escalation triggered (distance={top_distance:.2f}): {post_decision.reason}"
+        for attempt in range(1, RETRIEVAL_RETRY_COUNT + 1):
+            logger.info(
+                f"Querying vector space for: '{user_query}' (attempt {attempt}/{RETRIEVAL_RETRY_COUNT})"
             )
-            return AssistantResponse(
-                user_query=user_query,
-                answer="I am routing your inquiry to a senior support specialist.",
-                citation=None,
-                escalation=post_decision,
-            )
+            retrieved_chunks = self.vector_store.query(user_query)
+
+            if not retrieved_chunks:
+                logger.warning(
+                    f"Retrieval attempt {attempt} returned zero matching documents."
+                )
+                continue
+
+            top_hit = retrieved_chunks[0]
+            top_distance = top_hit["distance"]
+            break
+
 
         # GENERATION: Assemble grounded prompt and call Groq
         context_block = "\n\n".join(
@@ -75,7 +89,7 @@ class SupportPipeline:
                 f"Document: {chunk['source_doc']}\nContent: {chunk['excerpt']}"
                 for chunk in retrieved_chunks
             ]
-        )
+        ) if retrieved_chunks else ""
 
         # Grounding decision: We do not replay prior turns into the grounded prompt, because earlier assistant
         # answers become "context" the model can lean on, which dilutes the strict
@@ -92,12 +106,15 @@ class SupportPipeline:
 
         try:
             logger.info(f"Invoking LiteLLM inference endpoint ({LLM_MODEL})...")
-            response = completion(
-                model=LLM_MODEL,
-                messages=messages,
-                temperature=0.0,  # Zero temperature for strict factual grounding
-            )
-            raw_answer = response.choices[0].message.content.strip()
+            if retrieved_chunks:
+                response = completion(
+                    model=LLM_MODEL,
+                    messages=messages,
+                    temperature=0.0,  # Zero temperature for strict factual grounding
+                )
+                raw_answer = response.choices[0].message.content.strip()
+            else:
+                raw_answer = "I don't know."
 
         except Exception as e:
             logger.error(f"Inference API Failure: {str(e)}")
@@ -106,7 +123,37 @@ class SupportPipeline:
                 answer="I am currently experiencing technical difficulties reaching the knowledge base.",
                 citation=None,
                 escalation=EscalationDecision(
-                    should_escalate=True, reason=f"UPSTREAM_API_ERROR: {str(e)}"
+                    should_escalate=True,
+                    reason=f"UPSTREAM_API_ERROR: {str(e)}",
+                    handoff_summary=(
+                        f"Asked: {user_query.strip()} | Known: The system could not reach the language model. | "
+                        f"Why escalated: UPSTREAM_API_ERROR: {str(e)}"
+                    ),
+                ),
+            )
+
+        route_decision = decide_routing_action(
+            user_query=user_query,
+            retrieved_chunks=retrieved_chunks,
+            draft_answer=raw_answer,
+            top_distance=top_distance,
+            triage_hint=pre_decision.reason if pre_decision and pre_decision.should_escalate else None,
+            chat_history=history,
+        )
+
+        if route_decision.action == "escalate":
+            specialist = route_decision.specialist or "human support specialist"
+            logger.warning(
+                f"AI router escalated query to {specialist}: {route_decision.reason}"
+            )
+            return AssistantResponse(
+                user_query=user_query,
+                answer=f"I am routing your inquiry to a {specialist}.",
+                citation=None,
+                escalation=EscalationDecision(
+                    should_escalate=True,
+                    reason=route_decision.reason,
+                    handoff_summary=route_decision.handoff_summary,
                 ),
             )
 
@@ -118,7 +165,7 @@ class SupportPipeline:
                 citation=None,
                 escalation=EscalationDecision(
                     should_escalate=False,
-                    reason="Query unanswerable from context. Handled gracefully.",
+                    reason=route_decision.reason,
                 ),
             )
 
@@ -144,6 +191,6 @@ class SupportPipeline:
             citation=citation_obj,
             escalation=EscalationDecision(
                 should_escalate=False,
-                reason="Successfully generated cited, grounded response.",
+                reason=route_decision.reason,
             ),
         )

@@ -52,9 +52,14 @@ def run_cli():
 
             # STATE 1: ESCALATION TRIGGERED
             if response.escalation.should_escalate:
+                summary = (
+                    response.escalation.handoff_summary
+                    or response.escalation.reason
+                    or "Escalated without additional details."
+                )
                 panel_content = (
                     f"[bold red]{response.answer}[/]\n\n"
-                    f"[dim italic]System Note: {response.escalation.reason}[/]"
+                    f"[dim italic]Handoff Summary: {summary}[/]"
                 )
                 console.print(
                     Panel(
