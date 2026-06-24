@@ -61,7 +61,27 @@ further down (those need Python 3.12).
 
 ### Recommended: with Docker
 
-Requires Docker Desktop. Clone the repo and build the image:
+Requires Docker Desktop installed **and running** (the `docker` commands need the
+Docker engine active in the background).
+
+#### Fastest: use the prebuilt image (no build, no clone)
+
+A prebuilt image is published on Docker Hub. `docker run` pulls it automatically
+the first time:
+
+```bash
+# CLI:
+docker run -it --rm \
+  -e GROQ_API_KEY=your-key-here \
+  patricknshimiyimana/qtrade-ai-assistant
+
+# HTTP API (publish the port and add --api):
+docker run -p 8000:8000 \
+  -e GROQ_API_KEY=your-key-here \
+  patricknshimiyimana/qtrade-ai-assistant python main.py --api
+```
+
+#### Or build it yourself
 
 ```bash
 git clone https://github.com/Patricknshimiyimana/Qtrade-ai-assistant.git
@@ -72,8 +92,9 @@ docker build --platform linux/amd64 -t qtrade-ai-assistant .
 ```
 
 `--platform linux/amd64` makes the build use prebuilt wheels (and matches most
-cloud hosts). The image bundles the
-embedding model, so the first build takes a few minutes.
+cloud hosts). The image bundles the embedding model, so the first build takes a
+few minutes. Then run it the same way as above, using `qtrade-ai-assistant` as
+the image name.
 
 Run the CLI (the image's default):
 
