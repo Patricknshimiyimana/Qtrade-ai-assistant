@@ -55,7 +55,10 @@ Files:
 
 ## How to run
 
-The easiest way is **Docker** — it needs no local Python setup and avoids the
+First, get a free **Groq API key** at <https://console.groq.com/keys> — every run
+needs it, supplied as a `GROQ_API_KEY` environment variable (or in a `.env` file).
+
+The easiest way to run is **Docker** — no local Python setup, and it avoids the
 platform-specific build issues. To run locally instead, use the uv or pip options
 further down (those need Python 3.12).
 
@@ -66,8 +69,8 @@ Docker engine active in the background).
 
 #### Fastest: use the prebuilt image (no build, no clone)
 
-A prebuilt image is published on Docker Hub. `docker run` pulls it automatically
-the first time:
+A prebuilt image is published on Docker Hub; `docker run` pulls it automatically
+the first time.
 
 ```bash
 # CLI:
@@ -81,7 +84,12 @@ docker run -p 8000:8000 \
   patricknshimiyimana/qtrade-ai-assistant python main.py --api
 ```
 
-#### Or build it yourself
+> ### NOTE: Once it's running, try the [example chat interactions](#example-interactions) or the [HTTP API requests](#example-http-api-requests).
+
+Add `-e LLM_MODEL=groq/...` if you want to use a different model, or `--env-file .env` to load
+secrets from a file.
+
+#### Or build the image yourself
 
 ```bash
 git clone https://github.com/Patricknshimiyimana/Qtrade-ai-assistant.git
@@ -93,28 +101,7 @@ docker build --platform linux/amd64 -t qtrade-ai-assistant .
 
 `--platform linux/amd64` makes the build use prebuilt wheels (and matches most
 cloud hosts). The image bundles the embedding model, so the first build takes a
-few minutes. Then run it the same way as above, using `qtrade-ai-assistant` as
-the image name.
-
-Run the CLI (the image's default):
-
-```bash
-docker run -it --rm \
-  -e GROQ_API_KEY=your-key-here \
-  qtrade-ai-assistant
-```
-
-Run the HTTP API instead — publish the port and add `--api`:
-
-```bash
-docker run -p 8000:8000 \
-  -e GROQ_API_KEY=your-key-here \
-  qtrade-ai-assistant python main.py --api
-```
-
-Get a free Groq key at <https://console.groq.com/keys>. Add `-e LLM_MODEL=groq/...`
-to use a different model, or `--env-file .env` to load secrets from a file. See
-"HTTP API" below for the endpoints and example requests.
+few minutes. Then run the same commands as above, using the image name `qtrade-ai-assistant` in place of `patricknshimiyimana/qtrade-ai-assistant`.
 
 ### Local: with uv
 
@@ -164,8 +151,7 @@ pip install -r requirements.txt
 cp .env.example .env   # then edit .env and add your GROQ_API_KEY
 ```
 
-- **Groq free tier (default):** get a free key at
-  <https://console.groq.com/keys> and set `GROQ_API_KEY` in `.env`.
+- **Groq free tier (default):** set your `GROQ_API_KEY` in `.env`.
 - **Fully local, no API:** install [Ollama](https://ollama.com), run
   `ollama pull llama3.2`, and set `LLM_MODEL=ollama/llama3.2` in `.env`.
 
@@ -199,7 +185,7 @@ Endpoints:
 - `POST /sessions` → create a session, returns a `session_id`
 - `POST /sessions/{id}/messages` with `{"message": "..."}` → ask a question
 
-Example:
+### Example HTTP API Requests
 
 > #### Check the server is up (GET):
 
