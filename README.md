@@ -58,11 +58,17 @@ Files:
 Needs Python 3.10+.
 
 ```bash
-# 1. Install
+# 1. Clone the repository
+git clone https://github.com/Patricknshimiyimana/Qtrade-ai-assistant.git
+
+cd Qtrade-ai-assistant
+
+# 2. Install
 python -m venv .venv && source .venv/bin/activate
+
 pip install -r requirements.txt
 
-# 2. Set up the LLM
+# 3. Set up the LLM
 cp .env.example .env   # then edit .env
 ```
 
@@ -72,7 +78,7 @@ cp .env.example .env   # then edit .env
   `ollama pull llama3.2`, and set `LLM_MODEL=ollama/llama3.2` in `.env`.
 
 ```bash
-# 3. Run the CLI
+# 4. Run the CLI
 python main.py
 ```
 
