@@ -7,7 +7,7 @@ load_dotenv()
 
 # Model Configuration
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-LLM_MODEL = os.getenv("LLM_MODEL", "groq/llama3-70b-8192")
+LLM_MODEL = os.getenv("LLM_MODEL", "groq/openai/gpt-oss-120b")
 
 # RAG Retrieval Parameters
 TOP_K = 2

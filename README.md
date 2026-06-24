@@ -55,21 +55,92 @@ Files:
 
 ## How to run
 
-Needs Python 3.10+.
+The easiest way is **Docker** — it needs no local Python setup and avoids the
+platform-specific build issues. To run locally instead, use the uv or pip options
+further down (those need Python 3.12).
+
+### Recommended: with Docker
+
+Requires Docker Desktop. Clone the repo and build the image:
 
 ```bash
+git clone https://github.com/Patricknshimiyimana/Qtrade-ai-assistant.git
+
+cd Qtrade-ai-assistant
+
+docker build --platform linux/amd64 -t qtrade-ai-assistant .
+```
+
+`--platform linux/amd64` makes the build use prebuilt wheels (and matches most
+cloud hosts). The image bundles the
+embedding model, so the first build takes a few minutes.
+
+Run the CLI (the image's default):
+
+```bash
+docker run -it --rm \
+  -e GROQ_API_KEY=your-key-here \
+  qtrade-ai-assistant
+```
+
+Run the HTTP API instead — publish the port and add `--api`:
+
+```bash
+docker run -p 8000:8000 \
+  -e GROQ_API_KEY=your-key-here \
+  qtrade-ai-assistant python main.py --api
+```
+
+Get a free Groq key at <https://console.groq.com/keys>. Add `-e LLM_MODEL=groq/...`
+to use a different model, or `--env-file .env` to load secrets from a file. See
+"HTTP API" below for the endpoints and example requests.
+
+### Local: with uv
+
+[uv](https://docs.astral.sh/uv/) installs the correct Python version used in the
+project (3.12, from `.python-version`), so you don't need it preinstalled. On
+Windows, run these in Git Bash.
+
+```bash
+pip install uv                  # installs uv (works with any Python)
+
+git clone https://github.com/Patricknshimiyimana/Qtrade-ai-assistant.git
+cd Qtrade-ai-assistant
+
+python -m uv venv --seed        # creates a Python 3.12 env WITH pip (downloads 3.12 if needed)
+
+# activate the env, then install with its pip:
+source .venv/Scripts/activate   # Windows (Git Bash)
+# source .venv/bin/activate     # macOS / Linux
+pip install -r requirements.txt
+
+cp .env.example .env            # then add your GROQ_API_KEY
+python main.py
+```
+
+(`uv run` uses the project env automatically, so there's no venv to activate.)
+
+### Local: pip + venv
+
+Use this if you already have Python 3.10–3.12 installed:
+
+```bash
+# bash
+
 # 1. Clone the repository
 git clone https://github.com/Patricknshimiyimana/Qtrade-ai-assistant.git
 
 cd Qtrade-ai-assistant
 
 # 2. Install
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate         # macOS / Linux
+# source .venv/Scripts/activate   # Windows
 
 pip install -r requirements.txt
 
 # 3. Set up the LLM
-cp .env.example .env   # then edit .env
+cp .env.example .env   # then edit .env and add your GROQ_API_KEY
 ```
 
 - **Groq free tier (default):** get a free key at

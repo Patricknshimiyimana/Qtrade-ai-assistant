@@ -1,0 +1,23 @@
+# Virtual environments
+.venv
+.venv*/
+venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+
+# Secrets and local logs
+.env
+*.log
+
+# Docs / screenshots (not needed in the runtime image)
+docs/
+
+# Tests
+tests/

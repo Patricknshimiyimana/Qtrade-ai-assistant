@@ -27,8 +27,17 @@ def main():
     parser.add_argument(
         "--api", action="store_true", help="Run the HTTP API instead of the CLI"
     )
-    parser.add_argument("--host", default="127.0.0.1", help="API host (with --api)")
-    parser.add_argument("--port", type=int, default=8000, help="API port (with --api)")
+    parser.add_argument(
+        "--host",
+        default=os.getenv("HOST", "127.0.0.1"),
+        help="API host (with --api). Defaults to $HOST or 127.0.0.1.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("PORT", "8000")),
+        help="API port (with --api). Defaults to $PORT or 8000.",
+    )
     args = parser.parse_args()
 
     try:
