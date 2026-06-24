@@ -183,7 +183,10 @@ cases first: safety words and explicit human requests are flagged for hand-off,
 and greetings / "what can you do?" are answered directly without search. For
 everything else, an LLM router looks at the query, retrieved context, draft
 answer, and history to decide respond vs. escalate. If the router call fails, it
-falls back to deterministic routing.
+falls back to deterministic routing. The tradeoff: the router catches cases
+that fixed rules miss, but it costs an extra LLM call per query and could in
+principle decline to escalate, which is why moving safety/human-request
+escalation ahead of the router (see "What I'd do next") might be the safer design.
 
 **Handoff summaries.** When the assistant escalates, it returns a short summary
 (what was asked, what's known, why it escalated) so a human can pick it up at a
@@ -209,9 +212,9 @@ rule. History is still used by the router and the handoff summary.
 
 ## What I'd do next
 
-- **Deterministic safety short-circuit:** escalate safety / explicit-human
+- **Deterministic safety short-circuit:** Do an experimentation to escalate safety / explicit-human
   requests before any LLM call, so a safety hand-off can never depend on the
-  router. Keep the router for the ambiguous middle.
+  router. Keep the router for the ambiguous middle, and check the effective approach.
 - **Smarter safety detection:** pair the word check with a binary safety
   classifier (fail-safe: escalate on any signal) to catch phrasings regex misses.
 - **Robust citations:** return `{answer, cited_doc}` as structured output instead

@@ -7,9 +7,9 @@ context, draft answer, and history to decide respond vs. escalate, and writes a
 short handoff summary when it escalates. These notes answer the four design
 questions.
 
-## 1. A different hand-off policy
+## 1. A different escalation policy
 
-The policy is LLM-led: after a lexical pre-check, an LLM router judges
+The escalation policy implemented is LLM-led: after a lexical pre-check, an LLM router judges
 each message in context and hands off when a human is actually needed. It catches
 more real cases than fixed rules and produces a readable handoff summary.
 
@@ -37,7 +37,9 @@ At 100x (thousands of docs, many users at once), brute-force search and a single
 process break. I'd move to a real vector database with an ANN index, add
 retrieve-then-rerank and keyword+vector search for accuracy, cache embeddings and
 common answers to control cost, and split the app into a stateless API plus a
-separate indexing job that runs when docs change.
+separate indexing job that runs when docs change. LLM cost is the other limit:
+the router adds a second model call per query (which already triggers free-tier
+rate limits), so at scale I'd cache and consolidate it toward a single call.
 
 ## 3. Measuring quality and catching regressions
 
